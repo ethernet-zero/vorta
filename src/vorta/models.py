@@ -212,15 +212,15 @@ def get_misc_settings():
             'key': 'enable_notifications_success', 'value': False, 'type': 'checkbox',
             'label': trans_late('settings',
                                 'Also notify about successful background tasks')
+        },
+        {
+            'key': 'autostart', 'value': False, 'type': 'checkbox',
+            'label': trans_late('settings',
+                                'Automatically start Vorta at login')
         }
     ]
     if sys.platform == 'darwin':
         settings += [
-            {
-                'key': 'autostart', 'value': False, 'type': 'checkbox',
-                'label': trans_late('settings',
-                                    'Automatically start Vorta at login')
-            },
             {
                 'key': 'check_for_updates', 'value': True, 'type': 'checkbox',
                 'label': trans_late('settings',
@@ -250,6 +250,8 @@ def init_db(con):
     for setting in get_misc_settings():
         s, created = SettingsModel.get_or_create(key=setting['key'], defaults=setting)
         if created and setting['key'] == "use_dark_theme":
+            s.value = bool(uses_dark_mode())
+        if created and setting['key'] == "use_light_icon":
             s.value = bool(uses_dark_mode())
         s.label = setting['label']
         s.save()

@@ -136,8 +136,8 @@ def get_sorted_wifis(profile):
     if sys.platform == 'darwin':
         plist_path = '/Library/Preferences/SystemConfiguration/com.apple.airport.preferences.plist'
         plist_file = open(plist_path, 'rb')
-        wifis = plistlib.load(plist_file)['KnownNetworks']
-        if wifis:
+        wifis = plistlib.load(plist_file).get('KnownNetworks')
+        if wifis is not None:
             for wifi in wifis.values():
                 timestamp = wifi.get('LastConnected', None)
                 ssid = wifi['SSIDString']
@@ -152,11 +152,11 @@ def get_sorted_wifis(profile):
                     db_wifi.last_connected = timestamp
                     db_wifi.save()
 
-        # remove Wifis that were deleted in the system.
-        deleted_wifis = WifiSettingModel.select() \
-            .where(WifiSettingModel.ssid.not_in([w['SSIDString'] for w in wifis.values()]))
-        for wifi in deleted_wifis:
-            wifi.delete_instance()
+            # remove Wifis that were deleted in the system.
+            deleted_wifis = WifiSettingModel.select() \
+                .where(WifiSettingModel.ssid.not_in([w['SSIDString'] for w in wifis.values()]))
+            for wifi in deleted_wifis:
+                wifi.delete_instance()
 
     return WifiSettingModel.select() \
         .where(WifiSettingModel.profile == profile.id).order_by(-WifiSettingModel.last_connected)
@@ -222,31 +222,6 @@ def uses_dark_mode():
     return None
 
 
-def open_app_at_startup(enabled=True):
-    """
-    This function adds/removes the current app bundle from Login items in macOS
-    """
-    if sys.platform == 'darwin':
-        from Foundation import NSDictionary
-
-        from Cocoa import NSBundle, NSURL
-        from CoreFoundation import kCFAllocatorDefault
-        # CF = CDLL(find_library('CoreFoundation'))
-        from LaunchServices import (LSSharedFileListCreate, kLSSharedFileListSessionLoginItems,
-                                    LSSharedFileListInsertItemURL, kLSSharedFileListItemHidden,
-                                    kLSSharedFileListItemLast, LSSharedFileListItemRemove)
-
-        app_path = NSBundle.mainBundle().bundlePath()
-        url = NSURL.alloc().initFileURLWithPath_(app_path)
-        login_items = LSSharedFileListCreate(kCFAllocatorDefault, kLSSharedFileListSessionLoginItems, None)
-        props = NSDictionary.dictionaryWithObject_forKey_(True, kLSSharedFileListItemHidden)
-
-        new_item = LSSharedFileListInsertItemURL(login_items, kLSSharedFileListItemLast,
-                                                 None, None, url, props, None)
-        if not enabled:
-            LSSharedFileListItemRemove(login_items, new_item)
-
-
 def format_archive_name(profile, archive_name_tpl):
     """
     Generate an archive name. Default:
@@ -268,22 +243,23 @@ def get_mount_points(repo_url):
     for proc in psutil.process_iter():
         try:
             name = proc.name()
-        except Exception:
-            # Getting the process name may fail (e.g. zombie process on macOS)
+            if name == 'borg' or name.startswith('python'):
+                if 'mount' not in proc.cmdline():
+                    continue
+
+                for idx, parameter in enumerate(proc.cmdline()):
+                    if parameter.startswith(repo_url + '::'):
+                        archive_name = parameter[len(repo_url) + 2:]
+
+                        # The borg mount command specifies that the mount_point
+                        # parameter comes after the archive name
+                        if len(proc.cmdline()) > idx + 1:
+                            mount_point = proc.cmdline()[idx + 1]
+                            mount_points[archive_name] = mount_point
+                        break
+        except psutil.ZombieProcess:
+            # Getting process details may fail (e.g. zombie process on macOS)
+            # Also see https://github.com/giampaolo/psutil/issues/783
             continue
-        if name == 'borg' or name.startswith('python'):
-            if 'mount' not in proc.cmdline():
-                continue
-
-            for idx, parameter in enumerate(proc.cmdline()):
-                if parameter.startswith(repo_url + '::'):
-                    archive_name = parameter[len(repo_url) + 2:]
-
-                    # The borg mount command specifies that the mount_point
-                    # parameter comes after the archive name
-                    if len(proc.cmdline()) > idx + 1:
-                        mount_point = proc.cmdline()[idx + 1]
-                        mount_points[archive_name] = mount_point
-                    break
 
     return mount_points
