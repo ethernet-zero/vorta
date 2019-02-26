@@ -66,11 +66,6 @@
          <property name="text">
           <string>Repository URL:</string>
          </property>
-         <item>
-          <property name="text">
-           <string>Automatically choose SSH Key (default)</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item row="1" column="1">
@@ -131,16 +126,6 @@
           <enum>QLineEdit::Password</enum>
          </property>
         </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="label_3">
-         <property name="text">
-          <string>Extra Borg Arguments:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QLineEdit" name="extraBorgArgumentsLineEdit"/>
        </item>
       </layout>
      </widget>
