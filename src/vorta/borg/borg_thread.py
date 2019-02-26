@@ -58,7 +58,8 @@ class BorgThread(QtCore.QThread, BackupProfileMixin):
         env['BORG_RSH'] = 'ssh -oStrictHostKeyChecking=no'
         ssh_key = params.get('ssh_key')
         if ssh_key is not None:
-            env['BORG_RSH'] += f' -i ~/.ssh/{ssh_key}'
+            ssh_key_path = os.path.expanduser(f'~/.ssh/{ssh_key}')
+            env['BORG_RSH'] += f' -i {ssh_key_path}'
 
         self.env = env
         self.cmd = cmd
@@ -148,6 +149,7 @@ class BorgThread(QtCore.QThread, BackupProfileMixin):
 
         p = Popen(self.cmd, stdout=PIPE, stderr=PIPE, bufsize=1, universal_newlines=True,
                   env=self.env, cwd=self.cwd, start_new_session=True)
+
         self.process = p
 
         # Prevent blocking of stdout/err. Via https://stackoverflow.com/a/7730201/3983708
