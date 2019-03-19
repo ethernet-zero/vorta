@@ -5,8 +5,10 @@ At the bottom there is a simple schema migration system.
 """
 
 import json
+import os
 import sys
 from datetime import datetime, timedelta
+
 import peewee as pw
 from playhouse.migrate import SqliteMigrator, migrate
 
@@ -42,7 +44,7 @@ class RepoModel(pw.Model):
     unique_csize = pw.IntegerField(null=True)
     total_size = pw.IntegerField(null=True)
     total_unique_chunks = pw.IntegerField(null=True)
-    extra_borg_arguments = pw.CharField(default='', null=True)
+    extra_borg_arguments = pw.CharField(default='')
 
     def is_remote_repo(self):
         return not self.url.startswith('/')
@@ -250,9 +252,11 @@ def init_db(con):
     for setting in get_misc_settings():
         s, created = SettingsModel.get_or_create(key=setting['key'], defaults=setting)
         if created and setting['key'] == "use_dark_theme":
+            # Check if macOS with enabled dark mode
             s.value = bool(uses_dark_mode())
         if created and setting['key'] == "use_light_icon":
-            s.value = bool(uses_dark_mode())
+            # Check if macOS with enabled dark mode or Linux with GNOME DE
+            s.value = bool(uses_dark_mode()) or os.environ.get('XDG_CURRENT_DESKTOP', '') == 'GNOME'
         s.label = setting['label']
         s.save()
 
@@ -332,4 +336,4 @@ def init_db(con):
         _apply_schema_update(
             current_schema, 12,
             migrator.add_column(RepoModel._meta.table_name,
-                                'extra_borg_arguments', pw.CharField(default='', null=True)))
+                                'extra_borg_arguments', pw.CharField(default='')))
